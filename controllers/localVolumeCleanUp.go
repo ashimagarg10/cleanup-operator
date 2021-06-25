@@ -56,12 +56,6 @@ func (r *CleanUpWatcher) deleteMountedPath(ctx context.Context) bool {
 	return true
 }
 
-//patchFinalizer patches finalizer in Resources
-func patchFinalizer(rtype string, name string, namespace string) {
-	_, out, _ := ExecuteCommand("kubectl patch " + rtype + " " + name + " -n " + namespace + " -p '{\"metadata\":{\"finalizers\":[]}}' --type=merge")
-	fmt.Println(out)
-}
-
 // localVolumeNSCleanUp performs cleanUp when namespace is in terminating state
 func (r *CleanUpWatcher) localVolumeNSCleanUp(ctx context.Context, namespace string, resources []map[string]string, flag bool) bool {
 	patchFinalizer("localvolumes.local.storage.openshift.io", "local-disk", namespace)

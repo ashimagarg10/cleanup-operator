@@ -203,19 +203,21 @@ func (r *CleanUpWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 			}
 			if !res.ObjectMeta.DeletionTimestamp.IsZero() {
 				if containsString(res.GetFinalizers(), finalizer_name) {
-				} else {
-				}
-				// 	 && r.localVolumeNSCleanUp(ctx, namespace, resources, true) {
-				// 		fmt.Println("Custom finalizer Present")
-				// 		_, out, _ := ExecuteCommand("kubectl patch ns " + namespace + " -p '{\"metadata\":{\"finalizers\":[]}}' --type=merge")
-				// 		fmt.Println(out)
-				// 		fmt.Println("Local Volume Template Cleaned Successfully!!!")
-				// 	} else if r.localVolumeNSCleanUp(ctx, namespace, resources, false) {
-				// 		fmt.Println("Local Volume Template Cleaned Successfully!!!")
-				// 	}
+					fmt.Println("Custom finalizer Present")
+					removeCRDs(resources, true)
+					_, out, _ := ExecuteCommand("kubectl patch ns " + namespace + " -p '{\"metadata\":{\"finalizers\":[]}}' --type=merge")
+					fmt.Println(out)
+					fmt.Println("NetApp Tridente Template Cleaned Successfully!!!")
+				} // else {
+				// 	removeCRDs(resources, false)
+				// 	fmt.Println("NetApp Tridente Template Cleaned Successfully!!!")
+				// }
 			}
 		}
+	} else {
 	}
+
+	resources = make([]map[string]string, 1)
 
 	return ctrl.Result{}, nil
 }
@@ -280,129 +282,8 @@ func ExecuteCommand(command string) (int, string, string) {
 	return waitStatus.ExitStatus(), outStr, errStr
 }
 
-// 		// examine DeletionTimestamp to determine if object is under deletion
-// 		if res.ObjectMeta.DeletionTimestamp.IsZero() {
-// 			// The object is not being deleted, so if it does not have our finalizer,
-// 			// then lets add the finalizer and update the object. This is equivalent
-// 			// registering our finalizer.
-// 			if !containsString(res.GetFinalizers(), finalizer_name) {
-// 				controllerutil.AddFinalizer(res, finalizer_name)
-// 				err = r.Update(ctx, res)
-// 				if err != nil {
-// 					log.Error(err, "Error is updating resource ", namespace)
-// 					return ctrl.Result{}, err
-// 				}
-// 			}
-// 		} else {
-// 			// The object is being deleted
-// 			if containsString(res.GetFinalizers(), finalizer_name) {
-// 				fmt.Println("Finalizer Present")
-// 				removeCRDs(resourceMap, true)
-// 				_, out, _ := ExecuteCommand("kubectl patch ns " + namespace + " -p '{\"metadata\":{\"finalizers\":[]}}' --type=merge")
-// 				fmt.Println(out)
-// 			} else {
-// 				removeCRDs(resourceMap, false)
-// 			}
-// 			flagNamespace = true
-
-// 		for index := range resourceMap {
-// 			resourceType := resourceMap[index]["Type"]
-// 			resourceName := resourceMap[index]["Name"]
-// 			resourceNamespace := resourceMap[index]["Namespace"]
-
-// 			if resourceType == "deployment" && !flagNamespace {
-// 				fmt.Println("Getting Deployment")
-// 				res := &appsv1.Deployment{}
-// 				err = r.Get(ctx, types.NamespacedName{Name: resourceName, Namespace: resourceNamespace}, res)
-// 				if err != nil {
-// 					fmt.Print("Error in Getting deployment")
-// 					return ctrl.Result{}, err
-// 				}
-
-// 				// examine DeletionTimestamp to determine if object is under deletion
-// 				if res.ObjectMeta.DeletionTimestamp.IsZero() {
-// 					// The object is not being deleted, so if it does not have our finalizer,
-// 					// then lets add the finalizer and update the object. This is equivalent
-// 					// registering our finalizer.
-// 					if !containsString(res.GetFinalizers(), finalizer_name) {
-// 						controllerutil.AddFinalizer(res, finalizer_name)
-// 						err = r.Update(ctx, res)
-// 						if err != nil {
-// 							log.Error(err, "Error is updating resource ", resourceName)
-// 							return ctrl.Result{}, err
-// 						}
-// 					}
-// 				} else {
-// 					// The object is being deleted
-// 					// if containsString(res.GetFinalizers(), finalizer_name) {
-// 					fmt.Println("Finalizer Present")
-// 					// cleanup
-// 					performCleanUp(resourceNamespace)
-// 					// }
-// 					flagOther = true
-// 					break
-// 				}
-// 			}
-// 		}
-// 	}
-
-// // performCleanUp to clean all resources
-// func performCleanUp(namespace string) {
-// 	_, out, _ := ExecuteCommand("kubectl patch tprov trident -n " + namespace + " --type=merge -p '{\"spec\":{\"uninstall\":true}}'")
-// 	fmt.Println(out)
-// 	_, out, _ = ExecuteCommand("kubectl patch tprov trident -n " + namespace + " --type=merge -p '{\"spec\":{\"wipeout\":[\"crds\"],\"uninstall\":true}}'")
-// 	fmt.Println(out)
-// 	_, out, _ = ExecuteCommand("kubectl delete psp tridentoperatorpods")
-// 	fmt.Println(out)
-// 	_, out, _ = ExecuteCommand("kubectl patch deploy trident-csi -n " + namespace + " -p '{\"metadata\":{\"finalizers\":[]}}' --type=merge")
-// 	fmt.Println(out)
-// 	_, out, _ = ExecuteCommand("kubectl patch deploy trident-operator -n " + namespace + " -p '{\"metadata\":{\"finalizers\":[]}}' --type=merge")
-// 	fmt.Println(out)
-// 	_, out, _ = ExecuteCommand("kubectl delete deploy trident-operator -n " + namespace)
-// 	fmt.Println(out)
-// 	_, out, _ = ExecuteCommand("kubectl delete crd tridentprovisioners.trident.netapp.io")
-// 	fmt.Println(out)
-
-// 	_, out, _ = ExecuteCommand("kubectl patch ns " + namespace + " -p '{\"metadata\":{\"finalizers\":[]}}' --type=merge")
-// 	fmt.Println(out)
-// 	_, out, _ = ExecuteCommand("kubectl delete ns " + namespace)
-// 	fmt.Println(out)
-// }
-
-// func removeCRDs(resources []map[string]string, flag bool) {
-// 	crdNames := []string{"tridentbackends.trident.netapp.io", "tridentsnapshots.trident.netapp.io", "tridentstorageclasses.trident.netapp.io",
-// 		"tridenttransactions.trident.netapp.io", "tridentvolumes.trident.netapp.io", "tridentversions.trident.netapp.io", "tridentnodes.trident.netapp.io"}
-// 	for index := range crdNames {
-// 		crd := crdNames[index]
-// 		_, out, _ := ExecuteCommand("kubectl patch crd/" + crd + " -p '{\"metadata\":{\"finalizers\":[]}}' --type=merge")
-// 		fmt.Println(out)
-// 		_, out, _ = ExecuteCommand("kubectl delete crd " + crd)
-// 		fmt.Println(out)
-// 	}
-
-// 	// _, out, _ := ExecuteCommand("kubectl patch crd/tridentversions.trident.netapp.io -p '{\"metadata\":{\"finalizers\":[]}}' --type=merge")
-// 	// fmt.Println(out)
-// 	// _, out, _ = ExecuteCommand("kubectl patch crd/tridentversions.trident.netapp.io -p '{\"metadata\":{\"finalizers\":[]}}' --type=merge")
-// 	// fmt.Println(out)
-// 	// _, out, _ = ExecuteCommand("kubectl delete crd tridentversions.trident.netapp.io")
-// 	// fmt.Println(out)
-
-// 	// _, out, _ = ExecuteCommand("kubectl patch crd/tridentnodes.trident.netapp.io -p '{\"metadata\":{\"finalizers\":[]}}' --type=merge")
-// 	// fmt.Println(out)
-// 	// _, out, _ = ExecuteCommand("kubectl patch crd/tridentnodes.trident.netapp.io -p '{\"metadata\":{\"finalizers\":[]}}' --type=merge")
-// 	// fmt.Println(out)
-// 	// _, out, _ = ExecuteCommand("kubectl delete crd tridentnodes.trident.netapp.io")
-// 	// fmt.Println(out)
-
-// 	if flag {
-// 		for index := range resources {
-// 			resourceType := resources[index]["Type"]
-// 			resourceName := resources[index]["Name"]
-// 			resourceNamespace := resources[index]["Namespace"]
-
-// 			if resourceType == "deployment" {
-// 				patchFinalizer(resourceType, resourceName, resourceNamespace)
-// 			}
-// 		}
-// 	}
-// }
+//patchFinalizer patches finalizer in Resources
+func patchFinalizer(rtype string, name string, namespace string) {
+	_, out, _ := ExecuteCommand("kubectl patch " + rtype + " " + name + " -n " + namespace + " -p '{\"metadata\":{\"finalizers\":[]}}' --type=merge")
+	fmt.Println(out)
+}
