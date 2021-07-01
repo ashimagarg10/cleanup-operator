@@ -53,9 +53,12 @@ spec:
                       type: string
                   type: object
                 type: array
+              version:
+                type: string
             required:
             - namespace
             - resourceName
+            - version
             type: object
           status:
             description: CleanUpOperatorStatus defines the observed state of CleanUpOperator

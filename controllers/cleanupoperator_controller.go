@@ -170,54 +170,54 @@ func (r *CleanUpWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 
 	instance := &cleanupv1.CleanUpOperator{}
 	err := r.Get(ctx, req.NamespacedName, instance)
-	if err != nil && errors.IsNotFound(err) {
-		if template == "local-volume" {
-			fmt.Println("Local Volume")
+	if err != nil {
+		if errors.IsNotFound(err) {
+			if template == "local-volume" {
+				fmt.Println("Local Volume")
 
-			fmt.Println("Getting Namespace")
-			res := &corev1.Namespace{}
-			err = r.Get(ctx, types.NamespacedName{Name: namespace}, res)
-			if err != nil {
-				fmt.Print("Error in Getting Namespace")
-				return ctrl.Result{}, err
-			}
-			if !res.ObjectMeta.DeletionTimestamp.IsZero() {
-				if containsString(res.GetFinalizers(), finalizer_name) && r.localVolumeNSCleanUp(ctx, namespace, resources, true) {
-					fmt.Println("Custom finalizer Present")
-					_, out, _ := ExecuteCommand("kubectl patch ns " + namespace + " -p '{\"metadata\":{\"finalizers\":[]}}' --type=merge")
-					fmt.Println(out)
-					fmt.Println("Local Volume Template Cleaned Successfully!!!")
-				} // else if r.localVolumeNSCleanUp(ctx, namespace, resources, false) {
-				// 	fmt.Println("Local Volume Template Cleaned Successfully!!!")
-				// }
-			}
-		} else if template == "trident" {
-			fmt.Println("NetApp Trident")
+				fmt.Println("Getting Namespace")
+				res := &corev1.Namespace{}
+				err = r.Get(ctx, types.NamespacedName{Name: namespace}, res)
+				if err != nil {
+					fmt.Print("Error in Getting Namespace")
+					return ctrl.Result{}, err
+				}
+				if !res.ObjectMeta.DeletionTimestamp.IsZero() {
+					if containsString(res.GetFinalizers(), finalizer_name) && r.localVolumeNSCleanUp(ctx, namespace, resources, true) {
+						fmt.Println("Custom finalizer Present")
+						_, out, _ := ExecuteCommand("kubectl patch ns " + namespace + " -p '{\"metadata\":{\"finalizers\":[]}}' --type=merge")
+						fmt.Println(out)
+						fmt.Println("Local Volume Template Cleaned Successfully!!!")
+					} // else if r.localVolumeNSCleanUp(ctx, namespace, resources, false) {
+					// 	fmt.Println("Local Volume Template Cleaned Successfully!!!")
+					// }
+				}
+			} else if template == "trident" {
+				fmt.Println("NetApp Trident")
 
-			fmt.Println("Getting Namespace")
-			res := &corev1.Namespace{}
-			err = r.Get(ctx, types.NamespacedName{Name: namespace}, res)
-			if err != nil {
-				fmt.Print("Error in Getting Namespace")
-				return ctrl.Result{}, err
+				fmt.Println("Getting Namespace")
+				res := &corev1.Namespace{}
+				err = r.Get(ctx, types.NamespacedName{Name: namespace}, res)
+				if err != nil {
+					fmt.Print("Error in Getting Namespace")
+					return ctrl.Result{}, err
+				}
+				if !res.ObjectMeta.DeletionTimestamp.IsZero() {
+					if containsString(res.GetFinalizers(), finalizer_name) {
+						fmt.Println("Custom finalizer Present")
+						removeCRDs(resources, true)
+						_, out, _ := ExecuteCommand("kubectl patch ns " + namespace + " -p '{\"metadata\":{\"finalizers\":[]}}' --type=merge")
+						fmt.Println(out)
+						fmt.Println("NetApp Tridente Template Cleaned Successfully!!!")
+					} // else {
+					// 	removeCRDs(resources, false)
+					// 	fmt.Println("NetApp Tridente Template Cleaned Successfully!!!")
+					// }
+				}
 			}
-			if !res.ObjectMeta.DeletionTimestamp.IsZero() {
-				if containsString(res.GetFinalizers(), finalizer_name) {
-					fmt.Println("Custom finalizer Present")
-					removeCRDs(resources, true)
-					_, out, _ := ExecuteCommand("kubectl patch ns " + namespace + " -p '{\"metadata\":{\"finalizers\":[]}}' --type=merge")
-					fmt.Println(out)
-					fmt.Println("NetApp Tridente Template Cleaned Successfully!!!")
-				} // else {
-				// 	removeCRDs(resources, false)
-				// 	fmt.Println("NetApp Tridente Template Cleaned Successfully!!!")
-				// }
-			}
+			resources = make([]map[string]string, 1)
 		}
-	} else {
 	}
-
-	resources = make([]map[string]string, 1)
 
 	return ctrl.Result{}, nil
 }

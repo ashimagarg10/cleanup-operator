@@ -32,6 +32,7 @@ type CleanUpOperatorSpec struct {
 	// Foo string `json:"foo,omitempty"`
 	ResourceName string   `json:"resourceName"`
 	Namespace    string   `json:"namespace"`
+	Version      string   `json:"version"`
 	Resources    []Params `json:"resources,omitempty"`
 }
 

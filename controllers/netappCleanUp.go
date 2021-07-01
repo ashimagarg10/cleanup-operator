@@ -15,15 +15,15 @@ func removeCRDs(resources []map[string]string, flag bool) {
 
 	_, out, _ := ExecuteCommand("kubectl patch crd/tridentversions.trident.netapp.io -p '{\"metadata\":{\"finalizers\":[]}}' --type=merge")
 	fmt.Println(out)
-	_, out, _ = ExecuteCommand("kubectl patch crd/tridentversions.trident.netapp.io -p '{\"metadata\":{\"finalizers\":[]}}' --type=merge")
-	fmt.Println(out)
+	// _, out, _ = ExecuteCommand("kubectl patch crd/tridentversions.trident.netapp.io -p '{\"metadata\":{\"finalizers\":[]}}' --type=merge")
+	// fmt.Println(out)
 	_, out, _ = ExecuteCommand("kubectl delete crd tridentversions.trident.netapp.io")
 	fmt.Println(out)
 
 	_, out, _ = ExecuteCommand("kubectl patch crd/tridentnodes.trident.netapp.io -p '{\"metadata\":{\"finalizers\":[]}}' --type=merge")
 	fmt.Println(out)
-	_, out, _ = ExecuteCommand("kubectl patch crd/tridentnodes.trident.netapp.io -p '{\"metadata\":{\"finalizers\":[]}}' --type=merge")
-	fmt.Println(out)
+	// _, out, _ = ExecuteCommand("kubectl patch crd/tridentnodes.trident.netapp.io -p '{\"metadata\":{\"finalizers\":[]}}' --type=merge")
+	// fmt.Println(out)
 	_, out, _ = ExecuteCommand("kubectl delete crd tridentnodes.trident.netapp.io")
 	fmt.Println(out)
 

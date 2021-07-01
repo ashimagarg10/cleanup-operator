@@ -33,6 +33,11 @@ RUN curl -sLo /tmp/oc.tar.gz https://mirror.openshift.com/pub/openshift-v$(echo 
     rm -rf /tmp/oc.tar.gz 
 CMD ["/usr/local/bin/oc"]
 
+# Install Tridentctl
+ARG TRIDENT_VERSION=20.07.1
+RUN curl -LO https://github.com/NetApp/trident/releases/download/v${TRIDENT_VERSION}/trident-installer-${TRIDENT_VERSION}.tar.gz && \
+    tar -xvf trident-installer-$TRIDENT_VERSION.tar.gz
+
 COPY --from=builder /workspace/manager .
 # USER 65532:65532
 USER root

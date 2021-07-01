@@ -13,4 +13,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: ashima27/cleanup
-  newTag: "01"
+  newTag: "10"

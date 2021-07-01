@@ -5,6 +5,7 @@ metadata:
 spec:
   # resourceName: "local-volume"
   # namespace: "local-storage"
+  # version: "4.6"
   # resources: 
   #   - type: "deployment"
   #     name: "local-storage-operator"
@@ -16,6 +17,7 @@ spec:
 
   resourceName: "trident"
   namespace: "trident"
+  version: "20.07"
   resources: 
     - type: "deployment"
       name: "trident-csi"
