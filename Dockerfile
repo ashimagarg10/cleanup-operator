@@ -31,12 +31,13 @@ ARG OC_VERSION=4.6
 RUN curl -sLo /tmp/oc.tar.gz https://mirror.openshift.com/pub/openshift-v$(echo $OC_VERSION | cut -d'.' -f 1)/clients/oc/$OC_VERSION/linux/oc.tar.gz && \
     tar xzvf /tmp/oc.tar.gz -C /usr/local/bin/ && \
     rm -rf /tmp/oc.tar.gz 
-CMD ["/usr/local/bin/oc"]
+# CMD ["/usr/local/bin/oc"]
 
-# Install Tridentctl
-ARG TRIDENT_VERSION=20.07.1
-RUN curl -LO https://github.com/NetApp/trident/releases/download/v${TRIDENT_VERSION}/trident-installer-${TRIDENT_VERSION}.tar.gz && \
-    tar -xvf trident-installer-$TRIDENT_VERSION.tar.gz
+# # Install Tridentctl
+# ARG TRIDENT_VERSION=20.07.1
+# RUN curl -LO https://github.com/NetApp/trident/releases/download/v${TRIDENT_VERSION}/trident-installer-${TRIDENT_VERSION}.tar.gz && \
+#     tar -xvf trident-installer-$TRIDENT_VERSION.tar.gz
+# CMD ["/trident-installer/tridentctl"]
 
 COPY --from=builder /workspace/manager .
 # USER 65532:65532

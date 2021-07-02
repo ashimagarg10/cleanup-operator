@@ -33,6 +33,7 @@ import (
 
 	cleanupv1 "github.com/operator/cleanup-operator/api/v1"
 	"github.com/operator/cleanup-operator/controllers"
+
 	//+kubebuilder:scaffold:imports
 	localv1 "github.com/openshift/local-storage-operator/pkg/apis/local/v1"
 	v1 "github.com/operator-framework/api/pkg/operators/v1"
@@ -92,14 +93,14 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "CleanUpOperator")
 		os.Exit(1)
 	}
-	if err = (&controllers.CleanUpWatcher{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("CleanUpWatcher"),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "CleanUpWatcher")
-		os.Exit(1)
-	}
+	// if err = (&controllers.CleanUpWatcher{
+	// 	Client: mgr.GetClient(),
+	// 	Log:    ctrl.Log.WithName("controllers").WithName("CleanUpWatcher"),
+	// 	Scheme: mgr.GetScheme(),
+	// }).SetupWithManager(mgr); err != nil {
+	// 	setupLog.Error(err, "unable to create controller", "controller", "CleanUpWatcher")
+	// 	os.Exit(1)
+	// }
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

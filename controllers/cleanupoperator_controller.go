@@ -26,8 +26,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	localv1 "github.com/openshift/local-storage-operator/pkg/apis/local/v1"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -46,16 +44,16 @@ type CleanUpOperatorReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-// CleanUpWatcher reconciles a CleanUpOperator object
-type CleanUpWatcher struct {
-	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
-}
+// // CleanUpWatcher reconciles a CleanUpOperator object
+// type CleanUpWatcher struct {
+// 	client.Client
+// 	Log    logr.Logger
+// 	Scheme *runtime.Scheme
+// }
 
-var template = ""
-var namespace = ""
-var resources = make([]map[string]string, 1)
+// var template = ""
+// var namespace = ""
+// var resources = make([]map[string]string, 1)
 
 var finalizer_name = "custom/finalizer"
 
@@ -90,137 +88,191 @@ func (r *CleanUpOperatorReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return ctrl.Result{}, err
 	}
 
-	// resources = make([]map[string]string, 1)
-	template = instance.Spec.ResourceName
-	namespace = instance.Spec.Namespace
-	listOfResources := instance.Spec.Resources
-	for index := range listOfResources {
-		rmap := make(map[string]string)
-		rmap["Type"] = listOfResources[index].Type
-		rmap["Name"] = listOfResources[index].Name
-		rmap["Namespace"] = listOfResources[index].Namespace
-		resources = append(resources, rmap)
-	}
-	fmt.Println(template, namespace, resources)
-
-	// Check if the Namespace exists, if exists add custom finalizer
-	fmt.Println("Getting Namespace")
-	res := &corev1.Namespace{}
-	err = r.Get(ctx, types.NamespacedName{Name: namespace}, res)
-	if err != nil {
-		log.Error(err, "Error in Getting Namespace ", namespace)
-		return ctrl.Result{}, err
-	}
-	if !containsString(res.GetFinalizers(), finalizer_name) {
-		controllerutil.AddFinalizer(res, finalizer_name)
-		err = r.Update(ctx, res)
-		if err != nil {
-			log.Error(err, "Error is updating namespace ", namespace)
-			return ctrl.Result{}, err
-		}
-	}
-
-	for index := range resources {
-		resourceType := resources[index]["Type"]
-		resourceName := resources[index]["Name"]
-		resourceNamespace := resources[index]["Namespace"]
-
-		if resourceType == "deployment" {
-			fmt.Println("Getting Deployment")
-			res := &appsv1.Deployment{}
-			err = r.Get(ctx, types.NamespacedName{Name: resourceName, Namespace: resourceNamespace}, res)
-			if err != nil {
-				log.Error(err, "Error in Getting Deployment ", resourceName)
+	if instance.ObjectMeta.DeletionTimestamp.IsZero() {
+		// The object is not being deleted, so if it does not have our finalizer,
+		// then add the finalizer and update the object. This is equivalent
+		// registering our finalizer.
+		if !containsString(instance.GetFinalizers(), finalizer_name) {
+			controllerutil.AddFinalizer(instance, finalizer_name)
+			if err := r.Update(ctx, instance); err != nil {
+				log.Error(err, "Error is adding custom finalizer in CustomResoure ", instance.Name)
 				return ctrl.Result{}, err
 			}
-			if !containsString(res.GetFinalizers(), finalizer_name) {
-				controllerutil.AddFinalizer(res, finalizer_name)
-				err = r.Update(ctx, res)
-				if err != nil {
-					log.Error(err, "Error is updating resource ", resourceName)
-					return ctrl.Result{}, err
-				}
-			}
-		} else if resourceType == "localvolume" {
-			fmt.Println("Getting Local-Volume")
-			res := &localv1.LocalVolume{}
-			err = r.Get(ctx, types.NamespacedName{Name: resourceName, Namespace: resourceNamespace}, res)
-			if err != nil {
-				log.Error(err, "Error in Getting Local Volume ", resourceName)
-				return ctrl.Result{}, err
-			}
-			if !containsString(res.GetFinalizers(), finalizer_name) {
-				controllerutil.AddFinalizer(res, finalizer_name)
-				err = r.Update(ctx, res)
-				if err != nil {
-					log.Error(err, "Error is updating resource ", resourceName)
-					return ctrl.Result{}, err
-				}
-			}
-		} else if index != 0 {
-			fmt.Println("Resource ", resourceType, " is not being watched")
 		}
-	}
+	} else {
+		// The object is being deleted
+		if containsString(instance.GetFinalizers(), finalizer_name) {
+			// Custom finalizer is present, so perform cleanup
 
-	return ctrl.Result{}, nil
-}
+			template := instance.Spec.ResourceName
+			namespace := instance.Spec.Namespace
 
-func (r *CleanUpWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	fmt.Println("In watcher - ", req.Namespace)
-
-	instance := &cleanupv1.CleanUpOperator{}
-	err := r.Get(ctx, req.NamespacedName, instance)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			if template == "local-volume" {
-				fmt.Println("Local Volume")
-
-				fmt.Println("Getting Namespace")
-				res := &corev1.Namespace{}
-				err = r.Get(ctx, types.NamespacedName{Name: namespace}, res)
-				if err != nil {
-					fmt.Print("Error in Getting Namespace")
-					return ctrl.Result{}, err
-				}
-				if !res.ObjectMeta.DeletionTimestamp.IsZero() {
-					if containsString(res.GetFinalizers(), finalizer_name) && r.localVolumeNSCleanUp(ctx, namespace, resources, true) {
-						fmt.Println("Custom finalizer Present")
-						_, out, _ := ExecuteCommand("kubectl patch ns " + namespace + " -p '{\"metadata\":{\"finalizers\":[]}}' --type=merge")
-						fmt.Println(out)
-						fmt.Println("Local Volume Template Cleaned Successfully!!!")
-					} // else if r.localVolumeNSCleanUp(ctx, namespace, resources, false) {
-					// 	fmt.Println("Local Volume Template Cleaned Successfully!!!")
-					// }
-				}
-			} else if template == "trident" {
+			if template == "trident" {
 				fmt.Println("NetApp Trident")
 
 				fmt.Println("Getting Namespace")
 				res := &corev1.Namespace{}
 				err = r.Get(ctx, types.NamespacedName{Name: namespace}, res)
 				if err != nil {
-					fmt.Print("Error in Getting Namespace")
+					log.Error(err, "Error is getting NetApp Trident Namespace ", namespace)
 					return ctrl.Result{}, err
 				}
 				if !res.ObjectMeta.DeletionTimestamp.IsZero() {
-					if containsString(res.GetFinalizers(), finalizer_name) {
-						fmt.Println("Custom finalizer Present")
-						removeCRDs(resources, true)
-						_, out, _ := ExecuteCommand("kubectl patch ns " + namespace + " -p '{\"metadata\":{\"finalizers\":[]}}' --type=merge")
-						fmt.Println(out)
-						fmt.Println("NetApp Tridente Template Cleaned Successfully!!!")
-					} // else {
-					// 	removeCRDs(resources, false)
-					// 	fmt.Println("NetApp Tridente Template Cleaned Successfully!!!")
-					// }
+					err = removeCRDs()
+					if err != nil {
+						// Failed to perform CleanUp
+						return ctrl.Result{}, err
+					}
 				}
+				log.Info("NetApp Tridente Template Cleaned Successfully!!!")
 			}
-			resources = make([]map[string]string, 1)
+
+			// remove custom finalizer from the resource and update it.
+			controllerutil.RemoveFinalizer(instance, finalizer_name)
+			if err := r.Update(ctx, instance); err != nil {
+				log.Error(err, "Error is removing custom finalizer from CustomResoure ", instance.Name)
+				return ctrl.Result{}, err
+			}
 		}
+		// Stop reconciliation as the resource is being deleted
+		return ctrl.Result{}, nil
 	}
+
+	// resources = make([]map[string]string, 1)
+	// template = instance.Spec.ResourceName
+	// namespace = instance.Spec.Namespace
+	// listOfResources := instance.Spec.Resources
+	// for index := range listOfResources {
+	// 	rmap := make(map[string]string)
+	// 	rmap["Type"] = listOfResources[index].Type
+	// 	rmap["Name"] = listOfResources[index].Name
+	// 	rmap["Namespace"] = listOfResources[index].Namespace
+	// 	resources = append(resources, rmap)
+	// }
+	// fmt.Println(template, namespace, resources)
+
+	// // Check if the Namespace exists, if exists add custom finalizer
+	// fmt.Println("Getting Namespace")
+	// res := &corev1.Namespace{}
+	// err = r.Get(ctx, types.NamespacedName{Name: namespace}, res)
+	// if err != nil {
+	// 	log.Error(err, "Error in Getting Namespace ", namespace)
+	// 	return ctrl.Result{}, err
+	// }
+	// if !containsString(res.GetFinalizers(), finalizer_name) {
+	// 	controllerutil.AddFinalizer(res, finalizer_name)
+	// 	err = r.Update(ctx, res)
+	// 	if err != nil {
+	// 		log.Error(err, "Error is updating namespace ", namespace)
+	// 		return ctrl.Result{}, err
+	// 	}
+	// }
+
+	// for index := range resources {
+	// 	resourceType := resources[index]["Type"]
+	// 	resourceName := resources[index]["Name"]
+	// 	resourceNamespace := resources[index]["Namespace"]
+
+	// 	if resourceType == "deployment" {
+	// 		fmt.Println("Getting Deployment")
+	// 		res := &appsv1.Deployment{}
+	// 		err = r.Get(ctx, types.NamespacedName{Name: resourceName, Namespace: resourceNamespace}, res)
+	// 		if err != nil {
+	// 			log.Error(err, "Error in Getting Deployment ", resourceName)
+	// 			return ctrl.Result{}, err
+	// 		}
+	// 		if !containsString(res.GetFinalizers(), finalizer_name) {
+	// 			controllerutil.AddFinalizer(res, finalizer_name)
+	// 			err = r.Update(ctx, res)
+	// 			if err != nil {
+	// 				log.Error(err, "Error is updating resource ", resourceName)
+	// 				return ctrl.Result{}, err
+	// 			}
+	// 		}
+	// 	} else if resourceType == "localvolume" {
+	// 		fmt.Println("Getting Local-Volume")
+	// 		res := &localv1.LocalVolume{}
+	// 		err = r.Get(ctx, types.NamespacedName{Name: resourceName, Namespace: resourceNamespace}, res)
+	// 		if err != nil {
+	// 			log.Error(err, "Error in Getting Local Volume ", resourceName)
+	// 			return ctrl.Result{}, err
+	// 		}
+	// 		if !containsString(res.GetFinalizers(), finalizer_name) {
+	// 			controllerutil.AddFinalizer(res, finalizer_name)
+	// 			err = r.Update(ctx, res)
+	// 			if err != nil {
+	// 				log.Error(err, "Error is updating resource ", resourceName)
+	// 				return ctrl.Result{}, err
+	// 			}
+	// 		}
+	// 	} else if index != 0 {
+	// 		fmt.Println("Resource ", resourceType, " is not being watched")
+	// 	}
+	// }
 
 	return ctrl.Result{}, nil
 }
+
+// func (r *CleanUpWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+// 	fmt.Println("In watcher - ", req.Namespace)
+
+// 	instance := &cleanupv1.CleanUpOperator{}
+// 	err := r.Get(ctx, req.NamespacedName, instance)
+// 	if err != nil {
+// 		if errors.IsNotFound(err) {
+// 			if template == "local-volume" {
+// 				fmt.Println("Local Volume")
+
+// 				fmt.Println("Getting Namespace")
+// 				res := &corev1.Namespace{}
+// 				err = r.Get(ctx, types.NamespacedName{Name: namespace}, res)
+// 				if err != nil {
+// 					fmt.Print("Error in Getting Namespace")
+// 					return ctrl.Result{}, err
+// 				}
+// 				if !res.ObjectMeta.DeletionTimestamp.IsZero() {
+// 					if containsString(res.GetFinalizers(), finalizer_name) && r.localVolumeNSCleanUp(ctx, namespace, resources, true) {
+// 						fmt.Println("Custom finalizer Present")
+// 						_, out, _ := ExecuteCommand("kubectl patch ns " + namespace + " -p '{\"metadata\":{\"finalizers\":[]}}' --type=merge")
+// 						fmt.Println(out)
+// 						fmt.Println("Local Volume Template Cleaned Successfully!!!")
+// 					} // else if r.localVolumeNSCleanUp(ctx, namespace, resources, false) {
+// 					// 	fmt.Println("Local Volume Template Cleaned Successfully!!!")
+// 					// }
+// 				}
+// 			} else if template == "trident" {
+// 				fmt.Println("NetApp Trident")
+
+// 				fmt.Println("Getting Namespace")
+// 				res := &corev1.Namespace{}
+// 				err = r.Get(ctx, types.NamespacedName{Name: namespace}, res)
+// 				if err != nil {
+// 					fmt.Print("Error in Getting Namespace")
+// 					return ctrl.Result{}, err
+// 				}
+// 				if !res.ObjectMeta.DeletionTimestamp.IsZero() {
+// 					if containsString(res.GetFinalizers(), finalizer_name) {
+// 						fmt.Println("Custom finalizer Present")
+// 						removeCRDs(resources, true)
+// 						_, out, _ := ExecuteCommand("kubectl patch ns " + namespace + " -p '{\"metadata\":{\"finalizers\":[]}}' --type=merge")
+// 						fmt.Println(out)
+// 						fmt.Println("NetApp Tridente Template Cleaned Successfully!!!")
+// 					} // else {
+// 					// 	removeCRDs(resources, false)
+// 					// 	fmt.Println("NetApp Tridente Template Cleaned Successfully!!!")
+// 					// }
+// 				}
+// 			}
+
+// 			_, out, _ := ExecuteCommand("tridentctl version -n trident")
+// 			fmt.Println(out)
+
+// 			resources = make([]map[string]string, 1)
+// 		}
+// 	}
+
+// 	return ctrl.Result{}, nil
+// }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *CleanUpOperatorReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -229,12 +281,12 @@ func (r *CleanUpOperatorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-// SetupWithManager sets up the controller with the Manager.
-func (r *CleanUpWatcher) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&cleanupv1.CleanUpOperator{}).
-		Complete(r)
-}
+// // SetupWithManager sets up the controller with the Manager.
+// func (r *CleanUpWatcher) SetupWithManager(mgr ctrl.Manager) error {
+// 	return ctrl.NewControllerManagedBy(mgr).
+// 		For(&cleanupv1.CleanUpOperator{}).
+// 		Complete(r)
+// }
 
 // Helper function to check and remove string from a slice of strings.
 func containsString(slice []string, s string) bool {
@@ -247,7 +299,7 @@ func containsString(slice []string, s string) bool {
 }
 
 // ExecuteCommand to execute shell commands
-func ExecuteCommand(command string) (int, string, string) {
+func ExecuteCommand(command string) (int, string, error) {
 	fmt.Println("in ExecuteCommand")
 	var cmd *exec.Cmd
 	var cmdErr bytes.Buffer
@@ -279,11 +331,11 @@ func ExecuteCommand(command string) (int, string, string) {
 	if waitStatus.ExitStatus() == -1 {
 		fmt.Print(time.Now().String() + " Timed out " + command)
 	}
-	return waitStatus.ExitStatus(), outStr, errStr
+	return waitStatus.ExitStatus(), outStr, err
 }
 
-//patchFinalizer patches finalizer in Resources
-func patchFinalizer(rtype string, name string, namespace string) {
-	_, out, _ := ExecuteCommand("kubectl patch " + rtype + " " + name + " -n " + namespace + " -p '{\"metadata\":{\"finalizers\":[]}}' --type=merge")
-	fmt.Println(out)
-}
+// //patchFinalizer patches finalizer in Resources
+// func patchFinalizer(rtype string, name string, namespace string) {
+// 	_, out, _ := ExecuteCommand("kubectl patch " + rtype + " " + name + " -n " + namespace + " -p '{\"metadata\":{\"finalizers\":[]}}' --type=merge")
+// 	fmt.Println(out)
+// }
