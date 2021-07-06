@@ -30,10 +30,10 @@ type CleanUpOperatorSpec struct {
 
 	// Foo is an example field of CleanUpOperator. Edit cleanupoperator_types.go to remove/update
 	// Foo string `json:"foo,omitempty"`
-	ResourceName string   `json:"resourceName"`
-	Namespace    string   `json:"namespace"`
-	Version      string   `json:"version"`
-	Resources    []Params `json:"resources,omitempty"`
+	ResourceName string `json:"resourceName"`
+	Namespace    string `json:"namespace"`
+	Version      string `json:"version"`
+	//Resources    []Params `json:"resources,omitempty"`
 }
 
 type Params struct {

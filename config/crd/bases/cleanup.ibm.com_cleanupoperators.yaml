@@ -42,17 +42,6 @@ spec:
                 description: Foo is an example field of CleanUpOperator. Edit cleanupoperator_types.go
                   to remove/update Foo string `json:"foo,omitempty"`
                 type: string
-              resources:
-                items:
-                  properties:
-                    name:
-                      type: string
-                    namespace:
-                      type: string
-                    type:
-                      type: string
-                  type: object
-                type: array
               version:
                 type: string
             required:
