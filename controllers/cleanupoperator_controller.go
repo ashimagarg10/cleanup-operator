@@ -118,7 +118,7 @@ func (r *CleanUpOperatorReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 					return ctrl.Result{}, err
 				}
 				if !res.ObjectMeta.DeletionTimestamp.IsZero() {
-					err = removeCRDs()
+					err = r.removeCRDs(ctx)
 					if err != nil {
 						// Failed to perform CleanUp
 						return ctrl.Result{}, err
