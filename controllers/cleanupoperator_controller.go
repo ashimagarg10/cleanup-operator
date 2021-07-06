@@ -26,10 +26,9 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	corev1 "k8s.io/api/core/v1"
+	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -43,17 +42,6 @@ type CleanUpOperatorReconciler struct {
 	Log    logr.Logger
 	Scheme *runtime.Scheme
 }
-
-// // CleanUpWatcher reconciles a CleanUpOperator object
-// type CleanUpWatcher struct {
-// 	client.Client
-// 	Log    logr.Logger
-// 	Scheme *runtime.Scheme
-// }
-
-// var template = ""
-// var namespace = ""
-// var resources = make([]map[string]string, 1)
 
 var finalizer_name = "custom/finalizer"
 
@@ -105,26 +93,30 @@ func (r *CleanUpOperatorReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			// Custom finalizer is present, so perform cleanup
 
 			template := instance.Spec.ResourceName
-			namespace := instance.Spec.Namespace
+			version := instance.Spec.Version
+			//namespace := instance.Spec.Namespace
 
-			if template == "trident" {
+			if template == "netapp-trident" && version == "20.07" {
 				fmt.Println("NetApp Trident")
 
-				fmt.Println("Getting Namespace")
+				/*fmt.Println("Getting Namespace")
 				res := &corev1.Namespace{}
 				err = r.Get(ctx, types.NamespacedName{Name: namespace}, res)
 				if err != nil {
 					log.Error(err, "Error is getting NetApp Trident Namespace ", namespace)
 					return ctrl.Result{}, err
 				}
-				if !res.ObjectMeta.DeletionTimestamp.IsZero() {
-					err = removeCRDs()
-					if err != nil {
-						// Failed to perform CleanUp
-						return ctrl.Result{}, err
-					}
+				if !res.ObjectMeta.DeletionTimestamp.IsZero() {*/
+				err = r.removeCRDs(ctx)
+				if err != nil {
+					// Failed to perform CleanUp
+					return ctrl.Result{}, err
 				}
+				//}
 				log.Info("NetApp Tridente Template Cleaned Successfully!!!")
+			} else if template == "ocs-remote" {
+				log.Info("OCS cleanup not yet supported.")
+				return ctrl.Result{}, nil
 			}
 
 			// remove custom finalizer from the resource and update it.
@@ -156,6 +148,11 @@ func containsString(slice []string, s string) bool {
 		}
 	}
 	return false
+}
+
+func logFunctionDuration(logger logr.Logger, label string, start time.Time) {
+	duration := time.Since(start)
+	logger.Info("Time to complete", zap.Float64(label, duration.Seconds()))
 }
 
 // ExecuteCommand to execute shell commands

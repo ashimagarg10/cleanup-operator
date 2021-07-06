@@ -8,7 +8,9 @@ require (
 	github.com/onsi/gomega v1.10.2
 	github.com/openshift/local-storage-operator v0.0.0-20210429014248-65aca4d5aeae
 	github.com/operator-framework/api v0.8.0
+	go.uber.org/zap v1.15.0 // indirect
 	k8s.io/api v0.21.0
+	k8s.io/apiextensions-apiserver v0.20.1 // indirect
 	k8s.io/apimachinery v0.21.0
 	k8s.io/client-go v12.0.0+incompatible
 	sigs.k8s.io/controller-runtime v0.8.3

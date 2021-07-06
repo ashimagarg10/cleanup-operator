@@ -93,14 +93,6 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "CleanUpOperator")
 		os.Exit(1)
 	}
-	// if err = (&controllers.CleanUpWatcher{
-	// 	Client: mgr.GetClient(),
-	// 	Log:    ctrl.Log.WithName("controllers").WithName("CleanUpWatcher"),
-	// 	Scheme: mgr.GetScheme(),
-	// }).SetupWithManager(mgr); err != nil {
-	// 	setupLog.Error(err, "unable to create controller", "controller", "CleanUpWatcher")
-	// 	os.Exit(1)
-	// }
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
