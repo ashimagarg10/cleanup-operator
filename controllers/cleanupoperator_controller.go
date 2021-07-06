@@ -26,7 +26,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -98,21 +97,11 @@ func (r *CleanUpOperatorReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 			if template == "netapp-trident" && version == "20.07" {
 				fmt.Println("NetApp Trident")
-
-				/*fmt.Println("Getting Namespace")
-				res := &corev1.Namespace{}
-				err = r.Get(ctx, types.NamespacedName{Name: namespace}, res)
-				if err != nil {
-					log.Error(err, "Error is getting NetApp Trident Namespace ", namespace)
-					return ctrl.Result{}, err
-				}
-				if !res.ObjectMeta.DeletionTimestamp.IsZero() {*/
 				err = r.removeCRDs(ctx)
 				if err != nil {
 					// Failed to perform CleanUp
 					return ctrl.Result{}, err
 				}
-				//}
 				log.Info("NetApp Tridente Template Cleaned Successfully!!!")
 			} else if template == "ocs-remote" {
 				log.Info("OCS cleanup not yet supported.")
@@ -152,7 +141,7 @@ func containsString(slice []string, s string) bool {
 
 func logFunctionDuration(logger logr.Logger, label string, start time.Time) {
 	duration := time.Since(start)
-	logger.Info("Time to complete", zap.Float64(label, duration.Seconds()))
+	logger.Info("Time to complete", duration.Seconds())
 }
 
 // ExecuteCommand to execute shell commands

@@ -38,6 +38,7 @@ import (
 	localv1 "github.com/openshift/local-storage-operator/pkg/apis/local/v1"
 	v1 "github.com/operator-framework/api/pkg/operators/v1"
 	"github.com/operator-framework/api/pkg/operators/v1alpha1"
+	apiextenstionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 var (
@@ -53,6 +54,7 @@ func init() {
 	utilruntime.Must(v1.AddToScheme(scheme))
 	utilruntime.Must(v1alpha1.AddToScheme(scheme))
 	utilruntime.Must(localv1.SchemeBuilder.AddToScheme(scheme))
+	utilruntime.Must(apiextenstionsv1.AddToScheme(scheme))
 }
 
 func main() {
