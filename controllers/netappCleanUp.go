@@ -8,6 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 
+	tridentv1 "github.com/netapp/trident/persistent_store/crd/apis/netapp/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiextenstionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
@@ -33,13 +34,21 @@ func (cr *CleanUpOperatorReconciler) removeCRDs(ctx context.Context) error {
 
 		CRD.SetFinalizers([]string{})
 		if err := cr.Update(ctx, CRD); err != nil {
-			fmt.Println(err, "Error is removing finalizers from CustomResoure ", CRD.Name)
+			if errors.IsNotFound(err) {
+				fmt.Println("Update: CRD not found: ", crd)
+				continue
+			}
+			fmt.Println(err, "Error is removing finalizers from CRD ", CRD.Name)
 			return err
 		}
 
 		err = cr.Delete(ctx, CRD)
 		if err != nil {
-			fmt.Println(err, "Error is deleting CustomResoure ", CRD.Name)
+			if errors.IsNotFound(err) {
+				fmt.Println("Delete: CRD not found: ", crd)
+				continue
+			}
+			fmt.Println(err, "Error is deleting CRD ", CRD.Name)
 			return err
 		}
 
@@ -65,37 +74,49 @@ func (cr *CleanUpOperatorReconciler) patchCRs(ctx context.Context, namespace str
 	}
 
 	for _, node := range nodesList.Items {
-		customResource := "tridentnodes.trident.netapp.io/" + node.Name
-		command := "kubectl patch " + customResource + " -n " + namespace + " -p '{\"metadata\":{\"finalizers\":[]}}' --type=merge"
-		_, out, err := ExecuteCommand(command)
+		CRName := node.Name
+		CRTridentNode := &tridentv1.TridentNode{}
+		err = cr.Get(ctx, types.NamespacedName{Name: CRName, Namespace: namespace}, CRTridentNode)
 		if err != nil {
 			if errors.IsNotFound(err) {
-				fmt.Println("CR not found: tridentnodes.trident.netapp.io/", node.Name)
-				return err
+				fmt.Println("CR not found: ", CRName)
+				continue
 			}
-			fmt.Println("Error in patching finalizer in CR: tridentnodes.trident.netapp.io/", node.Name)
+			fmt.Println(err, "error in getting CR: ", CRName)
 			return err
 		}
-		fmt.Println(out)
+
+		CRTridentNode.SetFinalizers([]string{})
+		if err := cr.Update(ctx, CRTridentNode); err != nil {
+			fmt.Println(err, "Error is removing finalizers from CustomResoure ", CRTridentNode.Name)
+			return err
+		}
+		fmt.Println(CRTridentNode.Name)
 	}
 
 	ns := &corev1.Namespace{}
 	err = cr.Get(ctx, types.NamespacedName{Name: namespace}, ns)
 	if err != nil {
-		fmt.Println("Namespace Not Found")
+		fmt.Println("Info: Namespace Not Found")
 	} else {
-		customResource := "tridentversions.trident.netapp.io/trident"
-		command := "kubectl patch " + customResource + " -n " + namespace + " -p '{\"metadata\":{\"finalizers\":[]}}' --type=merge"
-		_, out, err := ExecuteCommand(command)
+		CRName := "trident"
+		CRTridentVersion := &tridentv1.TridentVersion{}
+		err := cr.Get(ctx, types.NamespacedName{Name: CRName, Namespace: namespace}, CRTridentVersion)
 		if err != nil {
 			if errors.IsNotFound(err) {
-				fmt.Println("CR not found: tridentversions.trident.netapp.io/trident")
-				return err
+				fmt.Println("CR not found: ", CRName)
+				return nil
 			}
-			fmt.Println("Error in patching finalizer in CR: tridentversions.trident.netapp.io/trident")
+			fmt.Println(err, "error in getting CR: ", CRName)
 			return err
 		}
-		fmt.Println(out)
+
+		CRTridentVersion.SetFinalizers([]string{})
+		if err := cr.Update(ctx, CRTridentVersion); err != nil {
+			fmt.Println(err, "Error is removing finalizers from CR ", CRTridentVersion.Name)
+			return err
+		}
+		fmt.Println(CRTridentVersion.Name)
 	}
 	return nil
 }
