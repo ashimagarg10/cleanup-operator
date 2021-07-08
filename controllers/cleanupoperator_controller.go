@@ -27,6 +27,7 @@ import (
 
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -48,6 +49,7 @@ var finalizer_name = "custom/finalizer"
 
 const (
 	tridentOperatorName = "trident-operator"
+	localVolumeName     = "local-disk"
 )
 
 //+kubebuilder:rbac:groups=cleanup.ibm.com,resources=cleanupoperators,verbs=get;list;watch;create;update;patch;delete
@@ -120,8 +122,25 @@ func (r *CleanUpOperatorReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			}
 
 		case template == "local-volume":
-			log.Info("Local Volume cleanup not yet supported.")
-			return ctrl.Result{}, nil
+			localVolumeNamespace := &corev1.Namespace{}
+			err = r.Get(ctx, types.NamespacedName{Name: namespace}, localVolumeNamespace)
+			if err != nil {
+				if errors.IsNotFound(err) {
+					log.Info("Local Volume namespace not found.")
+					return ctrl.Result{}, nil
+				}
+				log.Error(err, "Failed to get Local Volume Namespace ", namespace)
+				return ctrl.Result{}, err
+			}
+			if localVolumeNamespace.ObjectMeta.DeletionTimestamp.IsZero() {
+				if !containsString(localVolumeNamespace.GetFinalizers(), finalizer_name) {
+					controllerutil.AddFinalizer(localVolumeNamespace, finalizer_name)
+					if err := r.Update(ctx, localVolumeNamespace); err != nil {
+						log.Error(err, "Error is adding custom finalizer in Local Volume Namespace ", localVolumeNamespace)
+						return ctrl.Result{}, err
+					}
+				}
+			}
 
 		case template == "ocs-remote":
 			log.Info("OCS cleanup not yet supported.")
@@ -161,15 +180,43 @@ func (r *CleanUpOperatorReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 				// remove custom finalizer from the trident Operator and update it.
 				controllerutil.RemoveFinalizer(tridentOperator, finalizer_name)
 				if err := r.Update(ctx, tridentOperator); err != nil {
-					fmt.Println(err)
 					log.Error(err, "Error is removing custom finalizer from Trident Operator ", tridentOperatorName)
 					return ctrl.Result{}, err
 				}
-				log.Info("NetApp Tridente Template Cleaned Successfully!!!")
+				log.Info("NetApp Trident Template Cleaned Successfully!!!")
 
 			case template == "local-volume":
-				log.Info("Local Volume cleanup not yet supported.")
-				return ctrl.Result{}, nil
+				fmt.Println("Local Volume")
+
+				err = r.localVolumeCleanUp(ctx, namespace)
+				if err != nil {
+					// Failed to perform CleanUp
+					return ctrl.Result{}, err
+				}
+				err = r.removeLocalVolmeCRDs(ctx)
+				if err != nil {
+					// Failed to remove CRDs
+					return ctrl.Result{}, err
+				}
+
+				localVolumeNamespace := &corev1.Namespace{}
+				err = r.Get(ctx, types.NamespacedName{Name: namespace}, localVolumeNamespace)
+				if err != nil {
+					if errors.IsNotFound(err) {
+						log.Info("Local Volume namespace not found.")
+						return ctrl.Result{}, nil
+					}
+					log.Error(err, "Failed to get Local Volume Namespace ", namespace)
+					return ctrl.Result{}, err
+				}
+				// remove custom finalizer from the local Volume Namespace and update it.
+				controllerutil.RemoveFinalizer(localVolumeNamespace, finalizer_name)
+				if err := r.Update(ctx, localVolumeNamespace); err != nil {
+					fmt.Println(err)
+					log.Error(err, "Error is removing custom finalizer from Local Volume Namespace ", localVolumeNamespace)
+					return ctrl.Result{}, err
+				}
+				log.Info("Local Volume Template Cleaned Successfully!!!")
 
 			case template == "ocs-remote":
 				log.Info("OCS cleanup not yet supported.")

@@ -22,6 +22,7 @@ import (
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
+
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -37,8 +38,6 @@ import (
 	//+kubebuilder:scaffold:imports
 	tridentv1 "github.com/netapp/trident/persistent_store/crd/apis/netapp/v1"
 	localv1 "github.com/openshift/local-storage-operator/pkg/apis/local/v1"
-	v1 "github.com/operator-framework/api/pkg/operators/v1"
-	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 	apiextenstionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
@@ -52,8 +51,6 @@ func init() {
 
 	utilruntime.Must(cleanupv1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
-	utilruntime.Must(v1.AddToScheme(scheme))
-	utilruntime.Must(v1alpha1.AddToScheme(scheme))
 	utilruntime.Must(localv1.SchemeBuilder.AddToScheme(scheme))
 	utilruntime.Must(apiextenstionsv1.AddToScheme(scheme))
 	utilruntime.Must(tridentv1.AddToScheme(scheme))
