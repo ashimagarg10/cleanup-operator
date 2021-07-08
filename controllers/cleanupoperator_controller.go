@@ -26,8 +26,10 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -43,6 +45,10 @@ type CleanUpOperatorReconciler struct {
 }
 
 var finalizer_name = "custom/finalizer"
+
+const (
+	tridentOperatorName = "trident-operator"
+)
 
 //+kubebuilder:rbac:groups=cleanup.ibm.com,resources=cleanupoperators,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=cleanup.ibm.com,resources=cleanupoperators/status,verbs=get;update;patch
@@ -75,6 +81,10 @@ func (r *CleanUpOperatorReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return ctrl.Result{}, err
 	}
 
+	template := instance.Spec.ResourceName
+	version := instance.Spec.Version
+	namespace := instance.Spec.Namespace
+
 	if instance.ObjectMeta.DeletionTimestamp.IsZero() {
 		// The object is not being deleted, so if it does not have our finalizer,
 		// then add the finalizer and update the object. This is equivalent
@@ -86,16 +96,45 @@ func (r *CleanUpOperatorReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 				return ctrl.Result{}, err
 			}
 		}
+
+		switch {
+		case template == "netapp-trident" && version == "20.07":
+			tridentOperator := &appsv1.Deployment{}
+			err = r.Get(ctx, types.NamespacedName{Name: tridentOperatorName, Namespace: namespace}, tridentOperator)
+			if err != nil {
+				if errors.IsNotFound(err) {
+					log.Info("Trident Operator not found.")
+					return ctrl.Result{}, nil
+				}
+				log.Error(err, "Failed to get Trident Operator")
+				return ctrl.Result{}, err
+			}
+			if tridentOperator.ObjectMeta.DeletionTimestamp.IsZero() {
+				if !containsString(tridentOperator.GetFinalizers(), finalizer_name) {
+					controllerutil.AddFinalizer(tridentOperator, finalizer_name)
+					if err := r.Update(ctx, tridentOperator); err != nil {
+						log.Error(err, "Error is adding custom finalizer in Trident Operator ", tridentOperatorName)
+						return ctrl.Result{}, err
+					}
+				}
+			}
+
+		case template == "local-volume":
+			log.Info("Local Volume cleanup not yet supported.")
+			return ctrl.Result{}, nil
+
+		case template == "ocs-remote":
+			log.Info("OCS cleanup not yet supported.")
+			return ctrl.Result{}, nil
+		}
+
 	} else {
 		// The object is being deleted
 		if containsString(instance.GetFinalizers(), finalizer_name) {
 			// Custom finalizer is present, so perform cleanup
 
-			template := instance.Spec.ResourceName
-			version := instance.Spec.Version
-			namespace := instance.Spec.Namespace
-
-			if template == "netapp-trident" && version == "20.07" {
+			switch {
+			case template == "netapp-trident" && version == "20.07":
 				fmt.Println("NetApp Trident")
 
 				err = r.patchCRs(ctx, namespace)
@@ -108,11 +147,53 @@ func (r *CleanUpOperatorReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 					// Failed to perform CleanUp
 					return ctrl.Result{}, err
 				}
+
+				tridentOperator := &appsv1.Deployment{}
+				err = r.Get(ctx, types.NamespacedName{Name: tridentOperatorName, Namespace: namespace}, tridentOperator)
+				if err != nil {
+					if errors.IsNotFound(err) {
+						log.Info("Trident Operator not found.")
+						return ctrl.Result{}, nil
+					}
+					log.Error(err, "Failed to get Trident Operator")
+					return ctrl.Result{}, err
+				}
+				// remove custom finalizer from the trident Operator and update it.
+				controllerutil.RemoveFinalizer(tridentOperator, finalizer_name)
+				if err := r.Update(ctx, tridentOperator); err != nil {
+					fmt.Println(err)
+					log.Error(err, "Error is removing custom finalizer from Trident Operator ", tridentOperatorName)
+					return ctrl.Result{}, err
+				}
 				log.Info("NetApp Tridente Template Cleaned Successfully!!!")
-			} else if template == "ocs-remote" {
+
+			case template == "local-volume":
+				log.Info("Local Volume cleanup not yet supported.")
+				return ctrl.Result{}, nil
+
+			case template == "ocs-remote":
 				log.Info("OCS cleanup not yet supported.")
 				return ctrl.Result{}, nil
 			}
+
+			// if template == "netapp-trident" && version == "20.07" {
+			// 	fmt.Println("NetApp Trident")
+
+			// 	err = r.patchCRs(ctx, namespace)
+			// 	if err != nil {
+			// 		// Failed to remove finalizer from CRs
+			// 		return ctrl.Result{}, err
+			// 	}
+			// 	err = r.removeCRDs(ctx)
+			// 	if err != nil {
+			// 		// Failed to perform CleanUp
+			// 		return ctrl.Result{}, err
+			// 	}
+			// 	log.Info("NetApp Tridente Template Cleaned Successfully!!!")
+			// } else if template == "ocs-remote" {
+			// 	log.Info("OCS cleanup not yet supported.")
+			// 	return ctrl.Result{}, nil
+			// }
 
 			// remove custom finalizer from the resource and update it.
 			controllerutil.RemoveFinalizer(instance, finalizer_name)
