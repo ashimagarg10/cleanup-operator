@@ -93,10 +93,16 @@ func (r *CleanUpOperatorReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 			template := instance.Spec.ResourceName
 			version := instance.Spec.Version
-			//namespace := instance.Spec.Namespace
+			namespace := instance.Spec.Namespace
 
 			if template == "netapp-trident" && version == "20.07" {
 				fmt.Println("NetApp Trident")
+
+				err = r.patchCRs(ctx, namespace)
+				if err != nil {
+					// Failed to remove finalizer from CRs
+					return ctrl.Result{}, err
+				}
 				err = r.removeCRDs(ctx)
 				if err != nil {
 					// Failed to perform CleanUp
