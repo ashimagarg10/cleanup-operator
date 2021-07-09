@@ -171,7 +171,7 @@ func (r *CleanUpOperatorReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 					}
 					log.Info("custom finalizer removed from Trident Operator", "name", tridentOperatorName)
 				}
-				log.Info("NetApp Tridente Template Cleaned Successfully!!!")
+				log.Info("NetApp Trident Template Cleaned Successfully!!!")
 
 			case template == "local-volume":
 				log.Info("Local Volume cleanup not yet supported.")
