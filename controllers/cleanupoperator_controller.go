@@ -105,7 +105,7 @@ func (r *CleanUpOperatorReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			if err != nil {
 				if errors.IsNotFound(err) {
 					log.Info("Trident Operator not found. Check again...", "name", tridentOperatorName)
-					return ctrl.Result{}, err
+					return ctrl.Result{Requeue: true}, nil
 				}
 				log.Error(err, "Failed to get Trident Operator", "name", tridentOperatorName)
 				return ctrl.Result{}, err
