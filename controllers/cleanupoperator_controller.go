@@ -92,9 +92,10 @@ func (r *CleanUpOperatorReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		if !containsString(instance.GetFinalizers(), finalizer_name) {
 			controllerutil.AddFinalizer(instance, finalizer_name)
 			if err := r.Update(ctx, instance); err != nil {
-				log.Error(err, "Error is adding custom finalizer in CustomResoure ", instance.Name)
+				log.Error(err, "Error is adding custom finalizer in CleanupOperator")
 				return ctrl.Result{}, err
 			}
+			log.Info("custom finalizer added to CleanupOperator")
 		}
 
 		switch {
@@ -103,19 +104,20 @@ func (r *CleanUpOperatorReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			err = r.Get(ctx, types.NamespacedName{Name: tridentOperatorName, Namespace: namespace}, tridentOperator)
 			if err != nil {
 				if errors.IsNotFound(err) {
-					log.Info("Trident Operator not found.")
-					return ctrl.Result{}, nil
+					log.Info("Trident Operator not found. Check again...", "name", tridentOperatorName)
+					return ctrl.Result{}, err
 				}
-				log.Error(err, "Failed to get Trident Operator")
+				log.Error(err, "Failed to get Trident Operator", "name", tridentOperatorName)
 				return ctrl.Result{}, err
 			}
 			if tridentOperator.ObjectMeta.DeletionTimestamp.IsZero() {
 				if !containsString(tridentOperator.GetFinalizers(), finalizer_name) {
 					controllerutil.AddFinalizer(tridentOperator, finalizer_name)
 					if err := r.Update(ctx, tridentOperator); err != nil {
-						log.Error(err, "Error is adding custom finalizer in Trident Operator ", tridentOperatorName)
+						log.Error(err, "Error is adding custom finalizer in Trident Operator ", "name", tridentOperatorName)
 						return ctrl.Result{}, err
 					}
+					log.Info("custom finalizer added to Trident Operator", "name", tridentOperatorName)
 				}
 			}
 
@@ -148,22 +150,26 @@ func (r *CleanUpOperatorReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 					return ctrl.Result{}, err
 				}
 
+				tridentOpFound := true
 				tridentOperator := &appsv1.Deployment{}
 				err = r.Get(ctx, types.NamespacedName{Name: tridentOperatorName, Namespace: namespace}, tridentOperator)
 				if err != nil {
 					if errors.IsNotFound(err) {
-						log.Info("Trident Operator not found.")
-						return ctrl.Result{}, nil
+						log.Info("Trident Operator not found. Ignoring...", "name", tridentOperatorName)
+						tridentOpFound = false
+						//return ctrl.Result{}, nil
 					}
-					log.Error(err, "Failed to get Trident Operator")
+					log.Error(err, "Failed to get Trident Operator", "name", tridentOperatorName)
 					return ctrl.Result{}, err
 				}
-				// remove custom finalizer from the trident Operator and update it.
-				controllerutil.RemoveFinalizer(tridentOperator, finalizer_name)
-				if err := r.Update(ctx, tridentOperator); err != nil {
-					fmt.Println(err)
-					log.Error(err, "Error is removing custom finalizer from Trident Operator ", tridentOperatorName)
-					return ctrl.Result{}, err
+				if tridentOpFound {
+					// remove custom finalizer from the trident Operator and update it.
+					controllerutil.RemoveFinalizer(tridentOperator, finalizer_name)
+					if err := r.Update(ctx, tridentOperator); err != nil {
+						log.Error(err, "Error is removing custom finalizer from Trident Operator ", "name", tridentOperatorName)
+						return ctrl.Result{}, err
+					}
+					log.Info("custom finalizer removed from Trident Operator", "name", tridentOperatorName)
 				}
 				log.Info("NetApp Tridente Template Cleaned Successfully!!!")
 
@@ -176,31 +182,13 @@ func (r *CleanUpOperatorReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 				return ctrl.Result{}, nil
 			}
 
-			// if template == "netapp-trident" && version == "20.07" {
-			// 	fmt.Println("NetApp Trident")
-
-			// 	err = r.patchCRs(ctx, namespace)
-			// 	if err != nil {
-			// 		// Failed to remove finalizer from CRs
-			// 		return ctrl.Result{}, err
-			// 	}
-			// 	err = r.removeCRDs(ctx)
-			// 	if err != nil {
-			// 		// Failed to perform CleanUp
-			// 		return ctrl.Result{}, err
-			// 	}
-			// 	log.Info("NetApp Tridente Template Cleaned Successfully!!!")
-			// } else if template == "ocs-remote" {
-			// 	log.Info("OCS cleanup not yet supported.")
-			// 	return ctrl.Result{}, nil
-			// }
-
 			// remove custom finalizer from the resource and update it.
 			controllerutil.RemoveFinalizer(instance, finalizer_name)
 			if err := r.Update(ctx, instance); err != nil {
-				log.Error(err, "Error is removing custom finalizer from CustomResoure ", instance.Name)
+				log.Error(err, "Error is removing custom finalizer from CleanupOperator")
 				return ctrl.Result{}, err
 			}
+			log.Info("custom finalizer removed from CleanupOperator")
 		}
 		// Stop reconciliation as the resource is being deleted
 		return ctrl.Result{}, nil
@@ -228,7 +216,7 @@ func containsString(slice []string, s string) bool {
 
 func logFunctionDuration(logger logr.Logger, label string, start time.Time) {
 	duration := time.Since(start)
-	logger.Info("Time to complete", duration.Seconds())
+	logger.Info("Time to complete", "method", label, "time", duration.Seconds())
 }
 
 // ExecuteCommand to execute shell commands
