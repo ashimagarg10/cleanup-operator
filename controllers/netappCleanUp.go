@@ -15,9 +15,7 @@ import (
 
 // removeCRDs patches and deletes all trident crds
 func (cr *CleanUpOperatorReconciler) removeCRDs(ctx context.Context) error {
-	//log := cr.Log.WithValues("cleanupoperator", "Removing NetApp Configuration")
-	//defer logFunctionDuration(log, "removeCRDs", time.Now())
-	starttime := time.Now()
+	defer logFunctionDuration(cr.Log, "removeCRDs", time.Now())
 	crdNames := []string{"tridentbackends.trident.netapp.io", "tridentsnapshots.trident.netapp.io", "tridentstorageclasses.trident.netapp.io",
 		"tridenttransactions.trident.netapp.io", "tridentvolumes.trident.netapp.io", "tridentversions.trident.netapp.io", "tridentnodes.trident.netapp.io"}
 	for _, crd := range crdNames {
@@ -25,37 +23,35 @@ func (cr *CleanUpOperatorReconciler) removeCRDs(ctx context.Context) error {
 		err := cr.Get(ctx, types.NamespacedName{Name: crd}, CRD)
 		if err != nil {
 			if errors.IsNotFound(err) {
-				fmt.Println("CRD not found: ", crd)
+				cr.Log.Info("CRD not found. Ignoring...", "name", crd)
 				continue
 			}
-			fmt.Println(err, "error in getting crd: ", crd)
+			cr.Log.Error(err, "error in getting CRD", "name", crd)
 			return err
 		}
 
 		CRD.SetFinalizers([]string{})
 		if err := cr.Update(ctx, CRD); err != nil {
 			if errors.IsNotFound(err) {
-				fmt.Println("Update: CRD not found: ", crd)
+				cr.Log.Info("Removing finalizers: CRD not found. Ignoring...", "name", CRD.Name)
 				continue
 			}
-			fmt.Println(err, "Error is removing finalizers from CRD ", CRD.Name)
+			cr.Log.Error(err, "Error in removing finalizers from CRD.", "name", CRD.Name)
 			return err
 		}
+		cr.Log.Info("removed finalizers from CRD", "name", CRD.Name)
 
 		err = cr.Delete(ctx, CRD)
 		if err != nil {
 			if errors.IsNotFound(err) {
-				fmt.Println("Delete: CRD not found: ", crd)
+				cr.Log.Info("Deleting CRD: CRD not found. Ignoring...", "name", CRD.Name)
 				continue
 			}
-			fmt.Println(err, "Error is deleting CRD ", CRD.Name)
+			cr.Log.Error(err, "Error in deleting CRD", "name", CRD.Name)
 			return err
 		}
-
-		fmt.Println(CRD.Name)
+		cr.Log.Info("CRD deleted", "name", CRD.Name)
 	}
-	duration := time.Since(starttime)
-	fmt.Println("Time to complete", duration.Seconds())
 	return nil
 }
 
@@ -66,10 +62,10 @@ func (cr *CleanUpOperatorReconciler) patchCRs(ctx context.Context, namespace str
 	err := cr.List(ctx, nodesList)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			fmt.Println("Nodes List not found")
+			cr.Log.Error(err, "Nodes List not found")
 			return err
 		}
-		fmt.Println(err, "Error in getting Nodes List")
+		cr.Log.Error(err, "Error in getting Nodes List")
 		return err
 	}
 
@@ -79,35 +75,35 @@ func (cr *CleanUpOperatorReconciler) patchCRs(ctx context.Context, namespace str
 		err = cr.Get(ctx, types.NamespacedName{Name: CRName, Namespace: namespace}, CRTridentNode)
 		if err != nil {
 			if errors.IsNotFound(err) {
-				fmt.Println("CR not found: ", CRName)
+				cr.Log.Info("CR not found", "name", CRName)
 				continue
 			}
-			fmt.Println(err, "error in getting CR: ", CRName)
+			cr.Log.Error(err, "error in getting CR", "name", CRName)
 			return err
 		}
 
 		CRTridentNode.SetFinalizers([]string{})
 		if err := cr.Update(ctx, CRTridentNode); err != nil {
-			fmt.Println(err, "Error is removing finalizers from CustomResoure ", CRTridentNode.Name)
+			cr.Log.Error(err, "Error in removing finalizers from CR", "name", CRTridentNode.Name)
 			return err
 		}
-		fmt.Println(CRTridentNode.Name)
+		cr.Log.Info("removed finalizers from CR", "name", CRTridentNode.Name)
 	}
 
 	ns := &corev1.Namespace{}
 	err = cr.Get(ctx, types.NamespacedName{Name: namespace}, ns)
 	if err != nil {
-		fmt.Println("Info: Namespace Not Found")
+		cr.Log.Info("Namespace Not Found. Ignoring...", "name", namespace)
 	} else {
 		CRName := "trident"
 		CRTridentVersion := &tridentv1.TridentVersion{}
 		err := cr.Get(ctx, types.NamespacedName{Name: CRName, Namespace: namespace}, CRTridentVersion)
 		if err != nil {
 			if errors.IsNotFound(err) {
-				fmt.Println("CR not found: ", CRName)
+				cr.Log.Info("CR not found", "name", CRName)
 				return nil
 			}
-			fmt.Println(err, "error in getting CR: ", CRName)
+			cr.Log.Error(err, "error in getting CR", "name", CRName)
 			return err
 		}
 
@@ -116,7 +112,7 @@ func (cr *CleanUpOperatorReconciler) patchCRs(ctx context.Context, namespace str
 			fmt.Println(err, "Error is removing finalizers from CR ", CRTridentVersion.Name)
 			return err
 		}
-		fmt.Println(CRTridentVersion.Name)
+		cr.Log.Info("removed finalizers from CR", "name", CRTridentVersion.Name)
 	}
 	return nil
 }
