@@ -39,13 +39,8 @@ func (cr *CleanUpOperatorReconciler) localVolumeCleanUp(ctx context.Context, nam
 	pvfound := true
 	err = cr.List(ctx, pvList)
 	if err != nil {
-		if errors.IsNotFound(err) {
-			fmt.Println("PVs not found")
-			pvfound = false
-		} else {
-			fmt.Println(err, "Error in getting PVs")
-			pvfound = false
-		}
+		fmt.Println(err, "Error in getting PVs")
+		pvfound = false
 	}
 
 	// PV Deletion
@@ -56,41 +51,36 @@ func (cr *CleanUpOperatorReconciler) localVolumeCleanUp(ctx context.Context, nam
 				// if pv.Status.Phase == "Available" {
 				err = cr.Delete(ctx, &pv)
 				if err != nil {
-					// if errors.IsNotFound(err) {
-					// 	fmt.Println("PV not found")
-					// 	return err
-					// }
 					fmt.Print("Error in Deleting PV ", pv.Name)
 					return err
 				}
 				// }
 			}
 		}
-		fmt.Println("PV Deleted.....")
+		fmt.Println("PV(s) Deleted.....")
 	}
 
 	// Remove Mounted Path
 	nodesList := &corev1.NodeList{}
+	nodesfound := true
 	err = cr.List(ctx, nodesList)
 	if err != nil {
-		if errors.IsNotFound(err) {
-			fmt.Println("Nodes List not found")
-			return err
-		}
 		fmt.Println(err, "Error in getting Nodes List")
-		return err
+		nodesfound = true
 	}
 
-	for _, node := range nodesList.Items {
-		command := "oc debug node/" + node.Name + " -- chroot /host rm -rf /mnt"
-		_, out, err := ExecuteCommand(command)
-		if err != nil {
-			fmt.Println("Error in removing mounted path from node: ", node.Name)
-			return err
+	if nodesfound {
+		for _, node := range nodesList.Items {
+			command := "oc debug node/" + node.Name + " -- chroot /host rm -rf /mnt"
+			_, out, err := ExecuteCommand(command)
+			if err != nil {
+				fmt.Println("Error in removing mounted path from node: ", node.Name)
+				return err
+			}
+			fmt.Println(out)
 		}
-		fmt.Println(out)
+		fmt.Println("Mounted Paths Removed....")
 	}
-	fmt.Println("Mounted Paths Removed....")
 
 	return nil
 }
