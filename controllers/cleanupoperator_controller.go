@@ -177,9 +177,10 @@ func (r *CleanUpOperatorReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 						log.Info("Trident Operator not found. Ignoring...", "name", tridentOperatorName)
 						tridentOpFound = false
 						//return ctrl.Result{}, nil
+					} else {
+						log.Error(err, "Failed to get Trident Operator", "name", tridentOperatorName)
+						return ctrl.Result{}, err
 					}
-					log.Error(err, "Failed to get Trident Operator", "name", tridentOperatorName)
-					return ctrl.Result{}, err
 				}
 				if tridentOpFound {
 					// remove custom finalizer from the trident Operator and update it.
@@ -213,9 +214,10 @@ func (r *CleanUpOperatorReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 					if errors.IsNotFound(err) {
 						log.Info("Local Volume Operator not found. Ignoring...", "name", localVolumeOperatorName)
 						localVolumeOpFound = false
+					} else {
+						log.Error(err, "Failed to get Local Volume Operator", "name", localVolumeOperatorName)
+						return ctrl.Result{}, err
 					}
-					log.Error(err, "Failed to get Local Volume Operator", "name", localVolumeOperatorName)
-					return ctrl.Result{}, err
 				}
 				if localVolumeOpFound {
 					// remove custom finalizer from the local volume Operator and update it.

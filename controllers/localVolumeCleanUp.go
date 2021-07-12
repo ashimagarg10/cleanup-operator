@@ -20,9 +20,10 @@ func (cr *CleanUpOperatorReconciler) localVolumeCleanUp(ctx context.Context, nam
 		if errors.IsNotFound(err) {
 			fmt.Println("LocalVolume 'local-disk' not found")
 			localVolumeStatus = false
+		} else {
+			fmt.Println(err, "Error in getting LocalVolume 'local-disk'")
+			return err
 		}
-		fmt.Println(err, "Error in getting LocalVolume 'local-disk'")
-		return err
 	}
 
 	if localVolumeStatus {
@@ -35,34 +36,38 @@ func (cr *CleanUpOperatorReconciler) localVolumeCleanUp(ctx context.Context, nam
 
 	// Find PVs
 	pvList := &corev1.PersistentVolumeList{}
+	pvfound := true
 	err = cr.List(ctx, pvList)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			fmt.Println("PVs not found")
-			return err
+			pvfound = false
+		} else {
+			fmt.Println(err, "Error in getting PVs")
+			pvfound = false
 		}
-		fmt.Println(err, "Error in getting PVs")
-		return err
 	}
 
 	// PV Deletion
-	for _, pv := range pvList.Items {
-		if strings.HasPrefix(pv.Name, "local-pv-") {
-			fmt.Println("PV status- ", pv.Status.Phase)
-			// if pv.Status.Phase == "Available" {
-			err = cr.Delete(ctx, &pv)
-			if err != nil {
-				if errors.IsNotFound(err) {
-					fmt.Println("PV not found")
+	if pvfound {
+		for _, pv := range pvList.Items {
+			if strings.HasPrefix(pv.Name, "local-pv-") {
+				fmt.Println("PV status- ", pv.Status.Phase)
+				// if pv.Status.Phase == "Available" {
+				err = cr.Delete(ctx, &pv)
+				if err != nil {
+					// if errors.IsNotFound(err) {
+					// 	fmt.Println("PV not found")
+					// 	return err
+					// }
+					fmt.Print("Error in Deleting PV ", pv.Name)
 					return err
 				}
-				fmt.Print("Error in Deleting PV ", pv.Name)
-				return err
+				// }
 			}
-			// }
 		}
+		fmt.Println("PV Deleted.....")
 	}
-	fmt.Println("PV Deleted.....")
 
 	// Remove Mounted Path
 	nodesList := &corev1.NodeList{}
