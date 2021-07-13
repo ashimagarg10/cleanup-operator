@@ -13,4 +13,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: ashima27/cleanuptest
-  newTag: "36"
+  newTag: "38"
