@@ -47,7 +47,8 @@ type CleanUpOperatorReconciler struct {
 var finalizer_name = "custom/finalizer"
 
 const (
-	tridentOperatorName = "trident-operator"
+	tridentOperatorName     = "trident-operator"
+	localVolumeOperatorName = "local-storage-operator"
 )
 
 //+kubebuilder:rbac:groups=cleanup.ibm.com,resources=cleanupoperators,verbs=get;list;watch;create;update;patch;delete
@@ -92,10 +93,12 @@ func (r *CleanUpOperatorReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		if !containsString(instance.GetFinalizers(), finalizer_name) {
 			controllerutil.AddFinalizer(instance, finalizer_name)
 			if err := r.Update(ctx, instance); err != nil {
-				log.Error(err, "Error is adding custom finalizer in CleanupOperator")
+				log.Error(err, "Error is adding custom finalizer in CleanupOperator CR")
 				return ctrl.Result{}, err
 			}
-			log.Info("custom finalizer added to CleanupOperator")
+			log.Info("custom finalizer added to CleanupOperator CR")
+		} else {
+			log.Info("custom finalizer already present in CleanupOperator CR")
 		}
 
 		switch {
@@ -122,14 +125,31 @@ func (r *CleanUpOperatorReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			}
 
 		case template == "local-volume":
-			log.Info("Local Volume cleanup not yet supported.")
-			return ctrl.Result{}, nil
+			localVolumeOperator := &appsv1.Deployment{}
+			err = r.Get(ctx, types.NamespacedName{Name: localVolumeOperatorName, Namespace: namespace}, localVolumeOperator)
+			if err != nil {
+				if errors.IsNotFound(err) {
+					log.Info("Local Volume Operator not found. Check again...", "name", localVolumeOperatorName)
+					return ctrl.Result{Requeue: true}, nil
+				}
+				log.Error(err, "Failed to get Local Volume Operator", "name", localVolumeOperatorName)
+				return ctrl.Result{}, err
+			}
+			if localVolumeOperator.ObjectMeta.DeletionTimestamp.IsZero() {
+				if !containsString(localVolumeOperator.GetFinalizers(), finalizer_name) {
+					controllerutil.AddFinalizer(localVolumeOperator, finalizer_name)
+					if err := r.Update(ctx, localVolumeOperator); err != nil {
+						log.Error(err, "Error is adding custom finalizer in Local Volume Operator ", "name", localVolumeOperatorName)
+						return ctrl.Result{}, err
+					}
+					log.Info("custom finalizer added to Local Volume Operator", "name", localVolumeOperatorName)
+				}
+			}
 
 		case template == "ocs-remote":
 			log.Info("OCS cleanup not yet supported.")
 			return ctrl.Result{}, nil
 		}
-
 	} else {
 		// The object is being deleted
 		if containsString(instance.GetFinalizers(), finalizer_name) {
@@ -137,7 +157,7 @@ func (r *CleanUpOperatorReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 			switch {
 			case template == "netapp-trident" && version == "20.07":
-				fmt.Println("NetApp Trident")
+				log.Info("Storage Template Cleanup started...", "name", template)
 
 				err = r.patchCRs(ctx, namespace)
 				if err != nil {
@@ -157,10 +177,10 @@ func (r *CleanUpOperatorReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 					if errors.IsNotFound(err) {
 						log.Info("Trident Operator not found. Ignoring...", "name", tridentOperatorName)
 						tridentOpFound = false
-						//return ctrl.Result{}, nil
+					} else {
+						log.Error(err, "Failed to get Trident Operator", "name", tridentOperatorName)
+						return ctrl.Result{}, err
 					}
-					log.Error(err, "Failed to get Trident Operator", "name", tridentOperatorName)
-					return ctrl.Result{}, err
 				}
 				if tridentOpFound {
 					// remove custom finalizer from the trident Operator and update it.
@@ -174,8 +194,41 @@ func (r *CleanUpOperatorReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 				log.Info("NetApp Trident Template Cleaned Successfully!!!")
 
 			case template == "local-volume":
-				log.Info("Local Volume cleanup not yet supported.")
-				return ctrl.Result{}, nil
+				log.Info("Storage Template Cleanup started...", "name", template)
+
+				err = r.localVolumeCleanUp(ctx, namespace)
+				if err != nil {
+					// Failed to perform CleanUp
+					return ctrl.Result{}, err
+				}
+				err = r.removeLocalVolmeCRDs(ctx)
+				if err != nil {
+					// Failed to remove CRDs
+					return ctrl.Result{}, err
+				}
+
+				localVolumeOpFound := true
+				localVolumeOperator := &appsv1.Deployment{}
+				err = r.Get(ctx, types.NamespacedName{Name: localVolumeOperatorName, Namespace: namespace}, localVolumeOperator)
+				if err != nil {
+					if errors.IsNotFound(err) {
+						log.Info("Local Volume Operator not found. Ignoring...", "name", localVolumeOperatorName)
+						localVolumeOpFound = false
+					} else {
+						log.Error(err, "Failed to get Local Volume Operator", "name", localVolumeOperatorName)
+						return ctrl.Result{}, err
+					}
+				}
+				if localVolumeOpFound {
+					// remove custom finalizer from the local volume Operator and update it.
+					controllerutil.RemoveFinalizer(localVolumeOperator, finalizer_name)
+					if err := r.Update(ctx, localVolumeOperator); err != nil {
+						log.Error(err, "Error is removing custom finalizer from local volume Operator ", "name", localVolumeOperatorName)
+						return ctrl.Result{}, err
+					}
+					log.Info("custom finalizer removed from local volume Operator", "name", localVolumeOperatorName)
+				}
+				log.Info("Local Volume Template Cleaned Successfully!!!")
 
 			case template == "ocs-remote":
 				log.Info("OCS cleanup not yet supported.")
@@ -190,8 +243,6 @@ func (r *CleanUpOperatorReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			}
 			log.Info("custom finalizer removed from CleanupOperator")
 		}
-		// Stop reconciliation as the resource is being deleted
-		return ctrl.Result{}, nil
 	}
 
 	return ctrl.Result{}, nil
@@ -221,7 +272,7 @@ func logFunctionDuration(logger logr.Logger, label string, start time.Time) {
 
 // ExecuteCommand to execute shell commands
 func ExecuteCommand(command string) (int, string, error) {
-	fmt.Println("in ExecuteCommand")
+	fmt.Println("in ExecuteCommand running: ", command)
 	var cmd *exec.Cmd
 	var cmdErr bytes.Buffer
 	var cmdOut bytes.Buffer
