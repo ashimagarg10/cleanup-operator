@@ -157,7 +157,7 @@ func (r *CleanUpOperatorReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 			switch {
 			case template == "netapp-trident" && version == "20.07":
-				fmt.Println("NetApp Trident")
+				log.Info("Storage Template Cleanup started...", "name", template)
 
 				err = r.patchCRs(ctx, namespace)
 				if err != nil {
@@ -194,7 +194,7 @@ func (r *CleanUpOperatorReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 				log.Info("NetApp Trident Template Cleaned Successfully!!!")
 
 			case template == "local-volume":
-				fmt.Println("Local Volume")
+				log.Info("Storage Template Cleanup started...", "name", template)
 
 				err = r.localVolumeCleanUp(ctx, namespace)
 				if err != nil {
@@ -272,7 +272,7 @@ func logFunctionDuration(logger logr.Logger, label string, start time.Time) {
 
 // ExecuteCommand to execute shell commands
 func ExecuteCommand(command string) (int, string, error) {
-	fmt.Println("in ExecuteCommand")
+	fmt.Println("in ExecuteCommand running: ", command)
 	var cmd *exec.Cmd
 	var cmdErr bytes.Buffer
 	var cmdOut bytes.Buffer

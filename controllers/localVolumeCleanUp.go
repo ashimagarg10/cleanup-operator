@@ -31,7 +31,8 @@ func (cr *CleanUpOperatorReconciler) localVolumeCleanUp(ctx context.Context, nam
 			fmt.Println("PV status- ", pv.Status.Phase)
 			if pv.Status.Phase == "Bound" {
 				err = inerror.New("PV is in Bounded state " + pv.Name)
-				fmt.Print("PV is in Bounded state ", pv.Name)
+				fmt.Println("PV is in Bounded state ", pv.Name)
+				fmt.Println("Please remove bounded PVC/PoD")
 				return err
 			}
 		}
@@ -94,7 +95,7 @@ func (cr *CleanUpOperatorReconciler) localVolumeCleanUp(ctx context.Context, nam
 
 // removeLocalVolmeCRDs patches and deletes localVolume crds
 func (cr *CleanUpOperatorReconciler) removeLocalVolmeCRDs(ctx context.Context) error {
-	defer logFunctionDuration(cr.Log, "RemoveCRDs", time.Now())
+	defer logFunctionDuration(cr.Log, "removeLocalVolmeCRDs", time.Now())
 	crdNames := []string{"localvolumediscoveries.local.storage.openshift.io", "localvolumediscoveryresults.local.storage.openshift.io",
 		"localvolumes.local.storage.openshift.io", "localvolumesets.local.storage.openshift.io"}
 	for _, crd := range crdNames {
