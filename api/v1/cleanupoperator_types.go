@@ -33,19 +33,14 @@ type CleanUpOperatorSpec struct {
 	ResourceName string `json:"resourceName"`
 	Namespace    string `json:"namespace"`
 	Version      string `json:"version"`
-	//Resources    []Params `json:"resources,omitempty"`
-}
-
-type Params struct {
-	Type      string `json:"type,omitempty"`
-	Name      string `json:"name,omitempty"`
-	Namespace string `json:"namespace,omitempty"`
 }
 
 // CleanUpOperatorStatus defines the observed state of CleanUpOperator
 type CleanUpOperatorStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+	ActionPerformed string `json:"actionPerformed"`
+	ErrorMessage    string `json:"errorMessage"`
 }
 
 //+kubebuilder:object:root=true

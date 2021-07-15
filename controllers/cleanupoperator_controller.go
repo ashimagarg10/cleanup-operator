@@ -51,6 +51,11 @@ const (
 	localVolumeOperatorName = "local-storage-operator"
 )
 
+// var (
+// 	statusMsg = ""
+// 	errMsg    = ""
+// )
+
 //+kubebuilder:rbac:groups=cleanup.ibm.com,resources=cleanupoperators,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=cleanup.ibm.com,resources=cleanupoperators/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=cleanup.ibm.com,resources=cleanupoperators/finalizers,verbs=update
@@ -97,6 +102,7 @@ func (r *CleanUpOperatorReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 				return ctrl.Result{}, err
 			}
 			log.Info("custom finalizer added to CleanupOperator")
+			// statusMsg += "Custom Finalizer Added to CleanupOperator CR \n"
 		}
 
 		switch {
@@ -141,6 +147,7 @@ func (r *CleanUpOperatorReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 						return ctrl.Result{}, err
 					}
 					log.Info("custom finalizer added to Local Volume Operator", "name", localVolumeOperatorName)
+					// statusMsg += "Custom Finalizer Added to Local Volume Operator: " + localVolumeOperatorName + "\n"
 				}
 			}
 
@@ -148,7 +155,6 @@ func (r *CleanUpOperatorReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			log.Info("OCS cleanup not yet supported.")
 			return ctrl.Result{}, nil
 		}
-
 	} else {
 		// The object is being deleted
 		if containsString(instance.GetFinalizers(), finalizer_name) {
@@ -195,10 +201,12 @@ func (r *CleanUpOperatorReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 			case template == "local-volume":
 				fmt.Println("Local Volume")
+				// statusMsg += "Performing cleanUp for Local Volume Template \n"
 
 				err = r.localVolumeCleanUp(ctx, namespace)
 				if err != nil {
 					// Failed to perform CleanUp
+					// errMsg = err.Error()
 					return ctrl.Result{}, err
 				}
 				err = r.removeLocalVolmeCRDs(ctx)
@@ -243,9 +251,10 @@ func (r *CleanUpOperatorReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			}
 			log.Info("custom finalizer removed from CleanupOperator")
 		}
-		// Stop reconciliation as the resource is being deleted
-		return ctrl.Result{}, nil
 	}
+
+	// instance.Status.ActionPerformed = statusMsg
+	// instance.Status.ErrorMessage = errMsg
 
 	return ctrl.Result{}, nil
 }

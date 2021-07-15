@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	inerror "errors"
 	"fmt"
 	"strings"
 	"time"
@@ -15,9 +16,30 @@ import (
 
 func (cr *CleanUpOperatorReconciler) localVolumeCleanUp(ctx context.Context, namespace string) error {
 	defer logFunctionDuration(cr.Log, "localVolumeCleanUp", time.Now())
+
+	// Find PVs
+	pvList := &corev1.PersistentVolumeList{}
+	err := cr.List(ctx, pvList)
+	if err != nil {
+		fmt.Println(err, "Error in getting PVs")
+		return err
+	}
+
+	// Check PV
+	for _, pv := range pvList.Items {
+		if strings.HasPrefix(pv.Name, "local-pv-") {
+			fmt.Println("PV status- ", pv.Status.Phase)
+			if pv.Status.Phase == "Bounded" {
+				err = inerror.New("PV is in Bounded state " + pv.Name)
+				fmt.Print("PV is in Bounded state ", pv.Name)
+				return err
+			}
+		}
+	}
+
 	localVolumeStatus := true
 	localDisk := &localv1.LocalVolume{}
-	err := cr.Get(ctx, types.NamespacedName{Name: "local-disk", Namespace: namespace}, localDisk)
+	err = cr.Get(ctx, types.NamespacedName{Name: "local-disk", Namespace: namespace}, localDisk)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			fmt.Println("LocalVolume 'local-disk' not found")
@@ -36,25 +58,14 @@ func (cr *CleanUpOperatorReconciler) localVolumeCleanUp(ctx context.Context, nam
 		}
 	}
 
-	// Find PVs
-	pvList := &corev1.PersistentVolumeList{}
-	err = cr.List(ctx, pvList)
-	if err != nil {
-		fmt.Println(err, "Error in getting PVs")
-		return err
-	}
-
 	// PV Deletion
 	for _, pv := range pvList.Items {
 		if strings.HasPrefix(pv.Name, "local-pv-") {
-			fmt.Println("PV status- ", pv.Status.Phase)
-			// if pv.Status.Phase == "Available" {
 			err = cr.Delete(ctx, &pv)
 			if err != nil {
 				fmt.Print("Error in Deleting PV ", pv.Name)
 				return err
 			}
-			// }
 		}
 	}
 	fmt.Println("PV(s) Deleted.....")
@@ -68,7 +79,6 @@ func (cr *CleanUpOperatorReconciler) localVolumeCleanUp(ctx context.Context, nam
 	}
 
 	for _, node := range nodesList.Items {
-		defer logFunctionDuration(cr.Log, "Mounted Path Removal", time.Now())
 		command := "oc debug node/" + node.Name + " -- chroot /host rm -rf /mnt"
 		_, out, err := ExecuteCommand(command)
 		if err != nil {
