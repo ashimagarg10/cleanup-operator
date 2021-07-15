@@ -29,7 +29,7 @@ func (cr *CleanUpOperatorReconciler) localVolumeCleanUp(ctx context.Context, nam
 	for _, pv := range pvList.Items {
 		if strings.HasPrefix(pv.Name, "local-pv-") {
 			fmt.Println("PV status- ", pv.Status.Phase)
-			if pv.Status.Phase == "Bounded" {
+			if pv.Status.Phase == "Bound" {
 				err = inerror.New("PV is in Bounded state " + pv.Name)
 				fmt.Print("PV is in Bounded state ", pv.Name)
 				return err

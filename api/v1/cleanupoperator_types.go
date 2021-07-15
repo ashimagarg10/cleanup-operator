@@ -39,8 +39,8 @@ type CleanUpOperatorSpec struct {
 type CleanUpOperatorStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	ActionPerformed string `json:"actionPerformed"`
-	ErrorMessage    string `json:"errorMessage"`
+	// ActionPerformed string `json:"actionPerformed"`
+	// ErrorMessage    string `json:"errorMessage"`
 }
 
 //+kubebuilder:object:root=true
